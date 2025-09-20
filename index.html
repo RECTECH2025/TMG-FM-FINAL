@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TMG Financial Model | Ricaurte Energy Capital</title>
+  <meta name="description" content="Interactive financial model for Tungsten Metals Group (ASX: TMG) acquisition and growth plan."/>
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f8f9fa;
+      color: #1a1a1a;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      padding: 30px;
+      background: #1a3a5f;
+      color: white;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    h1, .subtitle { margin: 0; }
+    h1 { font-size: 28px; }
+    .subtitle { opacity: 0.9; font-size: 16px; }
+
+    .download-btn {
+      display: inline-block;
+      margin: 10px 5px;
+      padding: 12px 20px;
+      background: #2c5b87;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .download-btn:hover {
+      background: #1a3a5f;
+    }
+
+    .tab-nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 5px;
+    }
+    .tab-nav button {
+      padding: 10px 15px;
+      border: none;
+      background: #e0e7ff;
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .tab-nav button.active {
+      background: #2c5b87;
+      color: white;
+    }
+
+    .sheet {
+      display: none;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .sheet.active { display: block; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 14px;
+      overflow: auto;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+      border: 1px solid #ddd;
+      min-width: 100px;
+    }
+    th {
+      background: #f0f5ff;
+      color: #1a3a5f;
+      position: sticky;
+      top: 0;
+    }
+    input {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .input-cell {
+      background: #e8f4fd !important;
+    }
+    .highlight {
+      background: #fffacd;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-weight: 500;
+    }
+    footer {
+      text-align: center;
+      padding: 30px;
+      color: #666;
+      font-size: 14px;
+    }
+    .quarter-header {
+      white-space: nowrap;
+      font-weight: bold;
+      background: #2c5b87;
+      color: white;
+    }
+    .unit-label {
+      font-size: 0.8em;
+      color: #666;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <header>
+      <h1>Tungsten Metals Group (TMG)</h1>
+      <p class="subtitle">Interactive Financial Model | Acquisition at $18M USD | $35M CAPEX Commitment</p>
+    </header>
+
+    <!-- Download Buttons -->
+    <center>
+      <button class="download-btn" onclick="exportToExcel()">📥 Download as Excel</button>
+      <button class="download-btn" onclick="exportToPDF()">📄 Download as PDF</button>
+    </center>
+
+    <!-- Tabs -->
+    <div class="tab-nav">
+      <button class="tab-button active" data-tab="assumptions">Assumptions</button>
+      <button class="tab-button" data-tab="volume">Volume Schedule</button>
+      <button class="tab-button" data-tab="pl">P&L Forecast</button>
+      <button class="tab-button" data-tab="depr">Depreciation</button>
+      <button class="tab-button" data-tab="debt">Debt Schedule</button>
+      <button class="tab-button" data-tab="wc">WC Schedule</button>
+      <button class="tab-button" data-tab="is">Income Statement</button>
+      <button class="tab-button" data-tab="bs">Balance Sheet</button>
+      <button class="tab-button" data-tab="cfs">Cash Flow Stmt</button>
+      <button class="tab-button" data-tab="dashboard">Dashboard</button>
+    </div>
+
+    <!-- ASSUMPTIONS -->
+    <div class="sheet active" id="assumptions">
+      <h2>🔧 Assumptions</h2>
+      <table id="assumptions-table">
+        <tr><th>Item</th><th>Value</th><th>Units</th></tr>
+        <tr><td>FeW Price ($/kg W)</td><td class="input-cell" contenteditable="true">79</td><td>$ per kg of tungsten</td></tr>
+        <tr><td>Concentrate Cost ($/kg W)</td><td class="input-cell" contenteditable="true">38</td><td>$ per kg of tungsten</td></tr>
+        <tr><td>SG&A (% Revenue)</td><td class="input-cell" contenteditable="true">7</td><td>% of revenue</td></tr>
+        <tr><td>Fixed OPEX ($K/qtr)</td><td class="input-cell" contenteditable="true">500</td><td>$'000 per quarter</td></tr>
+        <tr><td>Debt Interest Rate</td><td class="input-cell" contenteditable="true">8</td><td>% per annum</td></tr>
+        <tr><td>Tax Rate</td><td class="input-cell" contenteditable="true">15</td><td>%</td></tr>
+        <tr><td>Discount Rate (WACC)</td><td class="input-cell" contenteditable="true">10</td><td>%</td></tr>
+        <tr><td>Utilization Rate</td><td class="input-cell" contenteditable="true">90</td><td>%</td></tr>
+        <tr><td>AR Days</td><td class="input-cell" contenteditable="true">45</td><td>days</td></tr>
+        <tr><td>Inventory Days</td><td class="input-cell" contenteditable="true">60</td><td>days</td></tr>
+        <tr><td>AP Days</td><td class="input-cell" contenteditable="true">30</td><td>days</td></tr>
+      </table>
+    </div>
+
+    <!-- VOLUME SCHEDULE -->
+    <div class="sheet" id="volume"><table id="volume-table"></table></div>
+    <!-- P&L FORECAST -->
+    <div class="sheet" id="pl"><table id="pl-table"></table></div>
+    <!-- DEPRECIATION -->
+    <div class="sheet" id="depr"><table id="depr-table"></table></div>
+    <!-- DEBT SCHEDULE -->
+    <div class="sheet" id="debt"><table id="debt-table"></table></div>
+    <!-- WC SCHEDULE -->
+    <div class="sheet" id="wc"><table id="wc-table"></table></div>
+    <!-- INCOME STATEMENT -->
+    <div class="sheet" id="is"><table id="is-table"></table></div>
+    <!-- BALANCE SHEET -->
+    <div class="sheet" id="bs"><table id="bs-table"></table></div>
+    <!-- CASH FLOW STATEMENT -->
+    <div class="sheet" id="cfs"><table id="cfs-table"></table></div>
+    <!-- DASHBOARD -->
+    <div class="sheet" id="dashboard">
+      <h2>🎯 Dashboard</h2>
+      <div class="highlight">
+        <strong>Total Investment:</strong> $53M USD ($18M Acquisition + $35M CAPEX)<br>
+        <strong>NPV:</strong> <span id="npv">$0</span><br>
+        <strong>Annual IRR:</strong> <span id="irr">0%</span><br>
+        <strong>Payback Period:</strong> <span id="payback">N/A</span><br>
+        <strong>2028 EBITDA:</strong> <span id="ebitda2028">$0K</span>
+      </div>
+    </div>
+
+    <footer>
+      © 2025 Ricaurte Energy Capital. For Qualified Investors Only.<br>
+      Based on Investment Memorandum REC Sept 2025, TMG Annual Report 2024, and Pro Forma Model.<br>
+      Not an offer to sell securities.
+    </footer>
+
+  </div>
+
+  <script>
+    // Global state
+    const quarters = Array.from({length: 10}, (_, i) => `Q${Math.floor(i/2)+3} ${2025 + Math.floor((i+1)/2)}`);
+
+    let assumptions = {};
+    let volumeData = [];
+    let plData = [];
+    let deprData = [];
+    let debtData = [];
+    let wcData = [];
+    let isData = [];
+    let bsData = [];
+    let cfsData = [];
+
+    // Tab Navigation
+    document.querySelectorAll('.tab-button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.sheet').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+
+        if (btn.dataset.tab === 'dashboard') updateDashboard();
+      });
+    });
+
+    // Input Listeners
+    document.querySelectorAll('.input-cell').forEach(cell => {
+      cell.addEventListener('input', () => {
+        updateAllSheets();
+        if (document.querySelector('#dashboard').classList.contains('active')) {
+          updateDashboard();
+        }
+      });
+    });
+
+    function getAssumptions() {
+      const cells = document.querySelectorAll('.input-cell');
+      assumptions = {
+        fePrice: parseFloat(cells[0].textContent) || 79,
+        concCost: parseFloat(cells[1].textContent) || 38,
+        sgA: parseFloat(cells[2].textContent) / 100 || 0.07,
+        fixedOPEX: parseFloat(cells[3].textContent) || 500,
+        intRate: parseFloat(cells[4].textContent) / 100 || 0.08,
+        taxRate: parseFloat(cells[5].textContent) / 100 || 0.15,
+        discRate: parseFloat(cells[6].textContent) / 100 || 0.10,
+        arDays: parseFloat(cells[8].textContent) || 45,
+        invDays: parseFloat(cells[9].textContent) || 60,
+        apDays: parseFloat(cells[10].textContent) || 30
+      };
+    }
+
+    function initTables() {
+      getAssumptions();
+
+      // Volume Table
+      const volTable = document.getElementById('volume-table');
+      volTable.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      volTable.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: Metric Tonnes (t)</th></tr>`;
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>FeW Volume (t)</td>${quarters.map((_, i) => {
+        const val = i < 2 ? 225 : i < 4 ? 450 : 450;
+        return `<td>${val}</td>`;
+      }).join('')}`;
+      volTable.appendChild(row);
+      volumeData = quarters.map((_, i) => ({ few: i < 2 ? 225 : i < 4 ? 450 : 450 }));
+
+      updateAllSheets();
+    }
+
+    function updateAllSheets() {
+      getAssumptions();
+      calculatePL();
+      calculateDepreciation();
+      calculateDebt();
+      calculateWC();
+      calculateIS();
+      calculateBS();
+      calculateCFS();
+    }
+
+    function formatNumber(num) {
+      return new Intl.NumberFormat().format(num.toFixed(0));
+    }
+
+    function formatCurrency(num) {
+      return '$' + new Intl.NumberFormat().format(num.toFixed(0));
+    }
+
+    function calculatePL() {
+      const table = document.getElementById('pl-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      plData = [];
+
+      const headers = ['Revenue', 'COGS', 'OPEX', 'EBITDA'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        volumeData.forEach(v => {
+          const wContent = v.few * 0.75;
+          const revenue = wContent * 1000 * assumptions.fePrice;
+          const cogs = wContent * 1000 * assumptions.concCost;
+          const opex = (revenue * assumptions.sgA) + assumptions.fixedOPEX;
+          const ebitda = revenue - cogs - opex;
+
+          if (h === 'Revenue') plData.push({ revenue, cogs, opex, ebitda });
+          tr.innerHTML += `<td>${Math.round(h === 'Revenue' ? revenue/1000 : h === 'COGS' ? cogs/1000 : h === 'OPEX' ? opex/1000 : ebitda/1000)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateDepreciation() {
+      const capexAdditions = [1250, 11500, 4750, 3000, 1000, 0, 0, 0, 0, 0];
+      const table = document.getElementById('depr-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      deprData = [];
+
+      const tr1 = document.createElement('tr');
+      tr1.innerHTML = `<td>CAPEX Addition</td>${capexAdditions.map(v => `<td>${v}</td>`).join('')}`;
+      table.appendChild(tr1);
+
+      const tr2 = document.createElement('tr');
+      tr2.innerHTML = `<td>Depreciation</td>`;
+      capexAdditions.forEach(add => {
+        const depr = add > 0 ? add / 10 / 4 : 795.83;
+        deprData.push({ add, depr });
+        tr2.innerHTML += `<td>${depr.toFixed(2)}</td>`;
+      });
+      table.appendChild(tr2);
+    }
+
+    function calculateDebt() {
+      const additions = [625, 5750, 2375, 1500, 500, 0, 0, 0, 0, 0];
+      const repayments = [0, 0, 610.625, 688.9, 698.84, 0, 0, 0, 0, 0];
+      let balance = 9000;
+
+      const table = document.getElementById('debt-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      debtData = [];
+
+      const headers = ['Beg Bal', 'Addition', 'Interest', 'Repayment', 'End Bal'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        additions.forEach((add, i) => {
+          const interest = balance * (assumptions.intRate / 4);
+          const repayment = repayments[i] || 0;
+          const end = balance + add - repayment;
+
+          if (h === 'Beg Bal') debtData.push({ beg: balance, add, interest, repayment, end });
+          tr.innerHTML += `<td>${h === 'Beg Bal' ? balance.toFixed(2) : h === 'Addition' ? add : h === 'Interest' ? interest.toFixed(2) : h === 'Repayment' ? repayment.toFixed(2) : end.toFixed(2)}</td>`;
+          balance = end;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateWC() {
+      const table = document.getElementById('wc-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      wcData = [];
+
+      let prevNetWC = 0;
+      const headers = ['AR', 'Inv', 'AP', 'Delta WC', 'Net WC'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        plData.forEach((pl, i) => {
+          const rev = pl.revenue;
+          const cog = pl.cogs;
+          const ar = rev * (assumptions.arDays / 90);
+          const inv = cog * (assumptions.invDays / 90);
+          const ap = cog * (assumptions.apDays / 90);
+          const netWC = ar + inv - ap;
+          const deltaWC = netWC - prevNetWC;
+          prevNetWC = netWC;
+
+          if (h === 'AR') wcData.push({ ar, inv, ap, deltaWC, netWC });
+          tr.innerHTML += `<td>${(h === 'AR' ? ar : h === 'Inv' ? inv : h === 'AP' ? ap : h === 'Delta WC' ? deltaWC : netWC).toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateIS() {
+      const table = document.getElementById('is-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      isData = [];
+
+      const headers = ['Rev', 'COGS', 'OPEX', 'EBITDA', 'Depr', 'Int', 'EBT', 'Tax', 'Net Inc'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        plData.forEach((pl, i) => {
+          const depr = deprData[i]?.depr || 0;
+          const interest = debtData[i]?.interest || 0;
+          const ebt = pl.ebitda - depr - interest;
+          const tax = ebt > 0 ? ebt * assumptions.taxRate : 0;
+          const netInc = ebt - tax;
+
+          if (h === 'Rev') isData.push({ netInc });
+
+          tr.innerHTML += `<td>${h === 'Rev' ? (pl.revenue/1000).toFixed(0) : 
+                             h === 'COGS' ? (pl.cogs/1000).toFixed(0) :
+                             h === 'OPEX' ? (pl.opex/1000).toFixed(0) :
+                             h === 'EBITDA' ? (pl.ebitda/1000).toFixed(0) :
+                             h === 'Depr' ? depr.toFixed(2) :
+                             h === 'Int' ? interest.toFixed(2) :
+                             h === 'EBT' ? (ebt/1000).toFixed(2) :
+                             h === 'Tax' ? (tax/1000).toFixed(2) :
+                             (netInc/1000).toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateBS() {
+      let cash = 0;
+      let ppe = 22370.83;
+      let equity = -9000;
+
+      const table = document.getElementById('bs-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      bsData = [];
+
+      const headers = ['Cash', 'PP&E', 'WC Assets', 'Total Assets', 'Debt', 'WC Liabs', 'Equity', 'Total L+E'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        cfsData.forEach((cf, i) => {
+          cash += cf.netCashFlow;
+          const wcAssets = wcData[i]?.netWC / 1000 || 0;
+          const totalAssets = cash + ppe + wcAssets;
+          const debt = debtData[i]?.end || 0;
+          const wcLiabs = wcData[i]?.ap / 1000 || 0;
+          equity += isData[i]?.netInc || 0;
+          const totalLE = debt + wcLiabs + equity;
+
+          ppe -= deprData[i]?.depr || 0;
+
+          if (h === 'Cash') bsData.push({ cash, ppe, wcAssets, totalAssets, debt, wcLiabs, equity, totalLE });
+
+          tr.innerHTML += `<td>${h === 'Cash' ? cash.toFixed(2) : 
+                             h === 'PP&E' ? ppe.toFixed(2) :
+                             h === 'WC Assets' ? wcAssets.toFixed(2) :
+                             h === 'Total Assets' ? totalAssets.toFixed(2) :
+                             h === 'Debt' ? debt.toFixed(2) :
+                             h === 'WC Liabs' ? wcLiabs.toFixed(2) :
+                             h === 'Equity' ? equity.toFixed(2) :
+                             totalLE.toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateCFS() {
+      const table = document.getElementById('cfs-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      cfsData = [];
+
+      const headers = ['Net Inc', 'Depr', 'ΔWC', 'CAPEX', 'Debt Inflow', 'Debt Repay', 'Net CF'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        isData.forEach((isRow, i) => {
+          const depr = deprData[i]?.depr || 0;
+          const deltaWC = -(wcData[i]?.deltaWC / 1000 || 0);
+          const capex = deprData[i]?.add || 0;
+          const inflow = debtData[i]?.add || 0;
+          const repay = debtData[i]?.repayment || 0;
+          const netCF = isRow.netInc + depr + deltaWC - capex + inflow - repay;
+
+          if (h === 'Net Inc') cfsData.push({ netCashFlow: netCF });
+
+          tr.innerHTML += `<td>${h === 'Net Inc' ? isRow.netInc.toFixed(2) : 
+                             h === 'Depr' ? depr.toFixed(2) :
+                             h === 'ΔWC' ? deltaWC.toFixed(2) :
+                             h === 'CAPEX' ? capex.toFixed(2) :
+                             h === 'Debt Inflow' ? inflow.toFixed(2) :
+                             h === 'Debt Repay' ? repay.toFixed(2) :
+                             netCF.toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function updateDashboard() {
+      const fcf = cfsData.map(d => d.netCashFlow);
+      const npv = fcf.reduce((sum, cf, i) => sum + cf / Math.pow(1 + assumptions.discRate, i + 1), 0);
+      document.getElementById('npv').textContent = '$' + Math.round(npv).toLocaleString();
+
+      let irr = 'NaN';
+      try {
+        let rate = -99;
+        let npv_irr;
+        do {
+          npv_irr = fcf.reduce((sum, cf, i) => sum + cf / Math.pow(1 + rate / 100, i + 1), 0);
+          if (Math.abs(npv_irr) < 1) break;
+          rate += 0.1;
+        } while (rate < 100 && npv_irr > 0);
+        irr = rate < 100 ? `${rate.toFixed(1)}%` : 'NaN';
+      } catch {}
+      document.getElementById('irr').textContent = irr;
+
+      const ebitda2028 = plData.slice(6, 8).reduce((sum, d) => sum + d.ebitda, 0) / 1000;
+      document.getElementById('ebitda2028').textContent = `$${Math.round(ebitda2028)}K`;
+
+      document.getElementById('payback').textContent = '6–7 years (est.)';
+    }
+
+    // Export Functions
+    function exportToExcel() {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.table_to_sheet(document.querySelector('#pl-table'));
+      XLSX.utils.book_append_sheet(wb, ws, 'P&L Forecast');
+      XLSX.writeFile(wb, 'TMG_Financial_Model.xlsx');
+    }
+
+    function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const table = document.querySelector('#pl-table');
+      if (table) {
+        const rows = Array.from(table.querySelectorAll('tr')).map(tr => Array.from(tr.children).map(td => td.innerText));
+        doc.autoTable({
+          head: [rows[0]],
+          body: rows.slice(1),
+          startY: 20,
+          theme: 'grid'
+        });
+      }
+      doc.text("TMG Financial Model - P&L Forecast", 14, 10);
+      doc.save('TMG_Financial_Model.pdf');
+    }
+
+    // Initialize
+    window.onload = () => {
+      initTables();
+      updateAllSheets();
+    };
+  </script>
+</body>
+</html>
