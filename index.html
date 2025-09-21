@@ -205,37 +205,318 @@
   </div>
 
   <script>
-    // Global state (same as before)
+    // Global state
     const quarters = Array.from({length: 10}, (_, i) => `Q${Math.floor(i/2)+3} ${2025 + Math.floor((i+1)/2)}`);
-    let assumptions = {};
-    let volumeData = []; let plData = []; let deprData = []; let debtData = [];
-    let wcData = []; let isData = []; let bsData = []; let cfsData = [];
 
-    // Tab Navigation & Input Listeners (same as before)
+    let assumptions = {};
+    let volumeData = [];
+    let plData = [];
+    let deprData = [];
+    let debtData = [];
+    let wcData = [];
+    let isData = [];
+    let bsData = [];
+    let cfsData = [];
+
+    // Tab Navigation
     document.querySelectorAll('.tab-button').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.sheet').forEach(s => s.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.tab).classList.add('active');
+
+        if (btn.dataset.tab === 'dashboard') updateDashboard();
       });
     });
 
+    // Input Listeners
     document.querySelectorAll('.input-cell').forEach(cell => {
-      cell.addEventListener('input', updateAllSheets);
+      cell.addEventListener('input', () => {
+        updateAllSheets();
+        if (document.querySelector('#dashboard').classList.contains('active')) {
+          updateDashboard();
+        }
+      });
     });
 
-    function getAssumptions() { /* ... */ }
-    function initTables() { /* ... */ }
-    function updateAllSheets() { /* ... */ }
-    function calculatePL() { /* ... */ }
-    function calculateDepreciation() { /* ... */ }
-    function calculateDebt() { /* ... */ }
-    function calculateWC() { /* ... */ }
-    function calculateIS() { /* ... */ }
-    function calculateBS() { /* ... */ }
-    function calculateCFS() { /* ... */ }
-    function updateDashboard() { /* ... */ }
+    function getAssumptions() {
+      const cells = document.querySelectorAll('.input-cell');
+      assumptions = {
+        fePrice: parseFloat(cells[0].textContent) || 79,
+        concCost: parseFloat(cells[1].textContent) || 38,
+        sgA: parseFloat(cells[2].textContent) / 100 || 0.07,
+        fixedOPEX: parseFloat(cells[3].textContent) || 500,
+        intRate: parseFloat(cells[4].textContent) / 100 || 0.08,
+        taxRate: parseFloat(cells[5].textContent) / 100 || 0.15,
+        discRate: parseFloat(cells[6].textContent) / 100 || 0.10,
+        arDays: parseFloat(cells[8].textContent) || 45,
+        invDays: parseFloat(cells[9].textContent) || 60,
+        apDays: parseFloat(cells[10].textContent) || 30
+      };
+    }
+
+    function initTables() {
+      getAssumptions();
+
+      // Volume Table
+      const volTable = document.getElementById('volume-table');
+      volTable.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      volTable.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: Metric Tonnes (t)</th></tr>`;
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>FeW Volume (t)</td>${quarters.map((_, i) => {
+        const val = i < 2 ? 225 : i < 4 ? 450 : 450;
+        return `<td>${val}</td>`;
+      }).join('')}`;
+      volTable.appendChild(row);
+      volumeData = quarters.map((_, i) => ({ few: i < 2 ? 225 : i < 4 ? 450 : 450 }));
+
+      updateAllSheets();
+    }
+
+    function updateAllSheets() {
+      getAssumptions();
+      calculatePL();
+      calculateDepreciation();
+      calculateDebt();
+      calculateWC();
+      calculateIS();
+      calculateBS();
+      calculateCFS();
+    }
+
+    function formatNumber(num) {
+      return new Intl.NumberFormat().format(num.toFixed(0));
+    }
+
+    function calculatePL() {
+      const table = document.getElementById('pl-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      plData = [];
+
+      const headers = ['Revenue', 'COGS', 'OPEX', 'EBITDA'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        volumeData.forEach(v => {
+          const wContent = v.few * 0.75;
+          const revenue = wContent * 1000 * assumptions.fePrice;
+          const cogs = wContent * 1000 * assumptions.concCost;
+          const opex = (revenue * assumptions.sgA) + assumptions.fixedOPEX;
+          const ebitda = revenue - cogs - opex;
+
+          if (h === 'Revenue') plData.push({ revenue, cogs, opex, ebitda });
+          tr.innerHTML += `<td>${Math.round(h === 'Revenue' ? revenue/1000 : h === 'COGS' ? cogs/1000 : h === 'OPEX' ? opex/1000 : ebitda/1000)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateDepreciation() {
+      const capexAdditions = [1250, 11500, 4750, 3000, 1000, 0, 0, 0, 0, 0];
+      const table = document.getElementById('depr-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      deprData = [];
+
+      const tr1 = document.createElement('tr');
+      tr1.innerHTML = `<td>CAPEX Addition</td>${capexAdditions.map(v => `<td>${v}</td>`).join('')}`;
+      table.appendChild(tr1);
+
+      const tr2 = document.createElement('tr');
+      tr2.innerHTML = `<td>Depreciation</td>`;
+      capexAdditions.forEach(add => {
+        const depr = add > 0 ? add / 10 / 4 : 795.83;
+        deprData.push({ add, depr });
+        tr2.innerHTML += `<td>${depr.toFixed(2)}</td>`;
+      });
+      table.appendChild(tr2);
+    }
+
+    function calculateDebt() {
+      const additions = [625, 5750, 2375, 1500, 500, 0, 0, 0, 0, 0]; // Debt financing inflow
+      const repayments = [0, 0, 610.625, 688.9, 698.84, 0, 0, 0, 0, 0];
+      let balance = 9000; // Initial liability from past obligations
+
+      const table = document.getElementById('debt-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      debtData = [];
+
+      const headers = ['Beg Bal', 'Addition', 'Interest', 'Repayment', 'End Bal'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        additions.forEach((add, i) => {
+          const interest = balance * (assumptions.intRate / 4);
+          const repayment = repayments[i] || 0;
+          const end = balance + add - repayment;
+
+          if (h === 'Beg Bal') debtData.push({ beg: balance, add, interest, repayment, end });
+          tr.innerHTML += `<td>${h === 'Beg Bal' ? balance.toFixed(2) : h === 'Addition' ? add : h === 'Interest' ? interest.toFixed(2) : h === 'Repayment' ? repayment.toFixed(2) : end.toFixed(2)}</td>`;
+          balance = end;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateWC() {
+      const table = document.getElementById('wc-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      wcData = [];
+
+      let prevNetWC = 0;
+      const headers = ['AR', 'Inv', 'AP', 'Delta WC', 'Net WC'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        plData.forEach((pl, i) => {
+          const rev = pl.revenue;
+          const cog = pl.cogs;
+          const ar = rev * (assumptions.arDays / 90);
+          const inv = cog * (assumptions.invDays / 90);
+          const ap = cog * (assumptions.apDays / 90);
+          const netWC = ar + inv - ap;
+          const deltaWC = netWC - prevNetWC;
+          prevNetWC = netWC;
+
+          if (h === 'AR') wcData.push({ ar, inv, ap, deltaWC, netWC });
+          tr.innerHTML += `<td>${(h === 'AR' ? ar : h === 'Inv' ? inv : h === 'AP' ? ap : h === 'Delta WC' ? deltaWC : netWC).toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateIS() {
+      const table = document.getElementById('is-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      isData = [];
+
+      const headers = ['Rev', 'COGS', 'OPEX', 'EBITDA', 'Depr', 'Int', 'EBT', 'Tax', 'Net Inc'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        plData.forEach((pl, i) => {
+          const depr = deprData[i]?.depr || 0;
+          const interest = debtData[i]?.interest || 0;
+          const ebt = pl.ebitda - depr - interest;
+          const tax = ebt > 0 ? ebt * assumptions.taxRate : 0;
+          const netInc = ebt - tax;
+
+          if (h === 'Rev') isData.push({ netInc });
+
+          tr.innerHTML += `<td>${h === 'Rev' ? (pl.revenue/1000).toFixed(0) : 
+                             h === 'COGS' ? (pl.cogs/1000).toFixed(0) :
+                             h === 'OPEX' ? (pl.opex/1000).toFixed(0) :
+                             h === 'EBITDA' ? (pl.ebitda/1000).toFixed(0) :
+                             h === 'Depr' ? depr.toFixed(2) :
+                             h === 'Int' ? interest.toFixed(2) :
+                             h === 'EBT' ? (ebt/1000).toFixed(2) :
+                             h === 'Tax' ? (tax/1000).toFixed(2) :
+                             (netInc/1000).toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateBS() {
+      let cash = 0;
+      let ppe = 22370.83;
+      let equity = -9000;
+
+      const table = document.getElementById('bs-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      bsData = [];
+
+      const headers = ['Cash', 'PP&E', 'WC Assets', 'Total Assets', 'Debt', 'WC Liabs', 'Equity', 'Total L+E'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        cfsData.forEach((cf, i) => {
+          cash += cf.netCashFlow;
+          const wcAssets = wcData[i]?.netWC / 1000 || 0;
+          const totalAssets = cash + ppe + wcAssets;
+          const debt = debtData[i]?.end || 0;
+          const wcLiabs = wcData[i]?.ap / 1000 || 0;
+          equity += isData[i]?.netInc || 0;
+          const totalLE = debt + wcLiabs + equity;
+
+          ppe -= deprData[i]?.depr || 0;
+
+          if (h === 'Cash') bsData.push({ cash, ppe, wcAssets, totalAssets, debt, wcLiabs, equity, totalLE });
+
+          tr.innerHTML += `<td>${h === 'Cash' ? cash.toFixed(2) : 
+                             h === 'PP&E' ? ppe.toFixed(2) :
+                             h === 'WC Assets' ? wcAssets.toFixed(2) :
+                             h === 'Total Assets' ? totalAssets.toFixed(2) :
+                             h === 'Debt' ? debt.toFixed(2) :
+                             h === 'WC Liabs' ? wcLiabs.toFixed(2) :
+                             h === 'Equity' ? equity.toFixed(2) :
+                             totalLE.toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function calculateCFS() {
+      const table = document.getElementById('cfs-table');
+      table.innerHTML = `<tr><th>Quarter</th>${quarters.map(q => `<th class="quarter-header">${q}</th>`).join('')}</tr>`;
+      table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
+      cfsData = [];
+
+      const headers = ['Net Inc', 'Depr', 'ΔWC', 'CAPEX', 'Debt Inflow', 'Debt Repay', 'Net CF'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${h}</td>`;
+        isData.forEach((isRow, i) => {
+          const depr = deprData[i]?.depr || 0;
+          const deltaWC = -(wcData[i]?.deltaWC / 1000 || 0);
+          const capex = deprData[i]?.add || 0;
+          const inflow = debtData[i]?.add || 0;
+          const repay = debtData[i]?.repayment || 0;
+          const netCF = isRow.netInc + depr + deltaWC - capex + inflow - repay;
+
+          if (h === 'Net Inc') cfsData.push({ netCashFlow: netCF });
+
+          tr.innerHTML += `<td>${h === 'Net Inc' ? isRow.netInc.toFixed(2) : 
+                             h === 'Depr' ? depr.toFixed(2) :
+                             h === 'ΔWC' ? deltaWC.toFixed(2) :
+                             h === 'CAPEX' ? capex.toFixed(2) :
+                             h === 'Debt Inflow' ? inflow.toFixed(2) :
+                             h === 'Debt Repay' ? repay.toFixed(2) :
+                             netCF.toFixed(2)}</td>`;
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function updateDashboard() {
+      const fcf = cfsData.map(d => d.netCashFlow);
+      const npv = fcf.reduce((sum, cf, i) => sum + cf / Math.pow(1 + assumptions.discRate, i + 1), 0);
+      document.getElementById('npv').textContent = '$' + Math.round(npv).toLocaleString();
+
+      let irr = 'NaN';
+      try {
+        let rate = -99;
+        let npv_irr;
+        do {
+          npv_irr = fcf.reduce((sum, cf, i) => sum + cf / Math.pow(1 + rate / 100, i + 1), 0);
+          if (Math.abs(npv_irr) < 1) break;
+          rate += 0.1;
+        } while (rate < 100 && npv_irr > 0);
+        irr = rate < 100 ? `${rate.toFixed(1)}%` : 'NaN';
+      } catch {}
+      document.getElementById('irr').textContent = irr;
+
+      const ebitda2028 = plData.slice(6, 8).reduce((sum, d) => sum + d.ebitda, 0) / 1000;
+      document.getElementById('ebitda2028').textContent = `$${Math.round(ebitda2028)}K`;
+
+      document.getElementById('payback').textContent = '6–7 years (est.)';
+    }
 
     // ========================
     // ✅ FIXED EXPORT FUNCTIONS
@@ -244,7 +525,6 @@
     function exportToExcel() {
       const wb = XLSX.utils.book_new();
 
-      // Convert each table to worksheet and add to workbook
       const sheetNames = ['assumptions', 'volume', 'pl', 'depr', 'debt', 'wc', 'is', 'bs', 'cfs', 'dashboard'];
       const tabTitles = [
         'Assumptions', 'Volume Schedule', 'P&L Forecast', 'Depreciation',
@@ -256,18 +536,17 @@
         const table = document.querySelector(`#${id}-table`) || document.querySelector(`#${id}`);
         if (table) {
           const ws = XLSX.utils.table_to_sheet(table);
-          XLSX.utils.book_append_sheet(wb, ws, tabTitles[i].substring(0, 31)); // Max 31 chars
+          XLSX.utils.book_append_sheet(wb, ws, tabTitles[i].substring(0, 31));
         }
       });
 
-      // Generate filename with date
       const now = new Date().toISOString().split('T')[0];
       XLSX.writeFile(wb, `TMG_Financial_Model_${now}.xlsx`);
     }
 
     function exportToPDF() {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF('l', 'pt', 'a4'); // Landscape A4
+      const doc = new jsPDF('l', 'pt', 'a4');
 
       const sheetNames = ['assumptions', 'volume', 'pl', 'depr', 'debt', 'wc', 'is', 'bs', 'cfs', 'dashboard'];
       const tabTitles = [
