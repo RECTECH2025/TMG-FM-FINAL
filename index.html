@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TMG Financial Model | Ricaurte Energy Capital</title>
-  <meta name="description" content="Simplified financial model for Tungsten Metals Group acquisition and growth plan."/>
+  <meta name="description" content="Accurate financial model for Tungsten Metals Group acquisition and growth plan."/>
   <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -127,7 +127,7 @@
 
     <header>
       <h1>Tungsten Metals Group (TMG)</h1>
-      <p class="subtitle">Simplified Financial Model | Zero Liabilities | $35M CAPEX in Tranches</p>
+      <p class="subtitle">Simplified Financial Model | Zero Liabilities | $35M CAPEX Tranches</p>
     </header>
 
     <!-- Download Buttons -->
@@ -150,8 +150,8 @@
       <h2>🔧 Assumptions</h2>
       <table id="assumptions-table">
         <tr><th>Item</th><th>Value</th><th>Units</th></tr>
-        <tr><td>FeW Price ($/kg W)</td><td class="input-cell" contenteditable="true">79</td><td>$ per kg of tungsten</td></tr>
-        <tr><td>Concentrate Cost ($/kg W)</td><td class="input-cell" contenteditable="true">38</td><td>$ per kg of tungsten</td></tr>
+        <tr><td>FeW Price ($/kg W)</td><td class="input-cell" contenteditable="true">50</td><td>$ per kg of tungsten</td></tr>
+        <tr><td>Concentrate Cost ($/kg W)</td><td class="input-cell" contenteditable="true">34.1</td><td>$ per kg of tungsten</td></tr>
         <tr><td>SG&A (% Revenue)</td><td class="input-cell" contenteditable="true">7</td><td>% of revenue</td></tr>
         <tr><td>Fixed OPEX ($K/qtr)</td><td class="input-cell" contenteditable="true">500</td><td>$'000 per quarter</td></tr>
         <tr><td>Tax Rate</td><td class="input-cell" contenteditable="true">15</td><td>%</td></tr>
@@ -181,7 +181,7 @@
         <tr><td>2028 EBITDA</td><td><span id="ebitda2028">$0K</span></td></tr>
       </table>
       <div class="highlight" style="margin-top: 15px; font-size: 0.9em;">
-        No liabilities assumed. All prior debts settled by seller.
+        Based on pro forma pricing: $50/kg FeW, $34.1/kg concentrate. All prior debts settled by seller.
       </div>
     </div>
 
@@ -230,8 +230,8 @@
     function getAssumptions() {
       const cells = document.querySelectorAll('.input-cell');
       assumptions = {
-        fePrice: parseFloat(cells[0].textContent) || 79,
-        concCost: parseFloat(cells[1].textContent) || 38,
+        fePrice: parseFloat(cells[0].textContent) || 50,
+        concCost: parseFloat(cells[1].textContent) || 34.1,
         sgA: parseFloat(cells[2].textContent) / 100 || 0.07,
         fixedOPEX: parseFloat(cells[3].textContent) || 500,
         taxRate: parseFloat(cells[4].textContent) / 100 || 0.15,
@@ -254,14 +254,15 @@
       table.innerHTML += `<tr><th colspan="${quarters.length + 1}" class="unit-label">Units: USD '000</th></tr>`;
       plData = [];
 
-      const volumeTonnage = [225, 225, 450, 450, 450, 450, 450, 450]; // FeW t/qtr
+      // Volume based on pro forma: 1,800 tpa → 900 t/half-year
+      const volumeTonnage = [0, 900, 900, 900, 900, 900, 900, 900]; // t per half-year
 
       const headers = ['Revenue', 'COGS', 'OPEX', 'EBITDA'];
       headers.forEach(h => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${h}</td>`;
         volumeTonnage.forEach((vol, i) => {
-          const wContent = vol * 0.75; // 75% W in FeW
+          const wContent = vol * 0.78; // 78% W content in FeW
           const revenue = wContent * 1000 * assumptions.fePrice;
           const cogs = wContent * 1000 * assumptions.concCost;
           const opex = (revenue * assumptions.sgA) + assumptions.fixedOPEX;
@@ -296,7 +297,7 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${h}</td>`;
         plData.forEach((pl, i) => {
-          const depr = 795.83; // Avg depreciation
+          const depr = 500; // Avg depreciation (~$2M over 4 years)
           const deltaWC = -(pl.ebitda * 0.1); // Simplified WC drag
           const capex = h === 'CAPEX' ? (i < 4 ? [0, 14000, 12000, 9000, 0, 0, 0, 0][i] : 0) : 0;
           const inflow = h === 'Investor Inflow' ? capexInjections[i] : 0;
